@@ -1,5 +1,7 @@
 package py.una.client;
 
+import py.una.server.Mensaje;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -7,11 +9,11 @@ import java.net.InetAddress;
 public class UDPClientSimulador {
 
     String direccionServidor;
-    int puertoServidor;
+    String usuario;
 
-    public UDPClientSimulador(String direccionServidor, int puertoServidor){
+    public UDPClientSimulador(String direccionServidor, String usuario){
         this.direccionServidor = direccionServidor;
-        this.puertoServidor = puertoServidor;
+        this.usuario = usuario;
         this.crearClientes();
     }
 
@@ -24,11 +26,18 @@ public class UDPClientSimulador {
                     DatagramSocket socket = new DatagramSocket();
                     InetAddress ipServidor = InetAddress.getByName(direccionServidor);
 
-                    String mensaje = "Hola mi amigo |" + clienteId;
-                    byte[] buffer = mensaje.getBytes();
+                    InetAddress address = InetAddress.getByName(direccionServidor);
+
+                    String msn = usuario + ":hola";
+                    //de momento le pongo puerto cero, pero debo cambiar la logica
+                    Mensaje mensaje = new Mensaje(address, 0, "simulador", msn);
+
+                    String datoPaquete = MensajeJSON.objetoString(mensaje);
+
+                    byte[] buffer = datoPaquete.getBytes();
 
                     DatagramPacket packet = new DatagramPacket(
-                            buffer, buffer.length, ipServidor, puertoServidor
+                            buffer, buffer.length, ipServidor, 4444
                     );
 
                     socket.send(packet);

@@ -30,14 +30,16 @@ public class UDPClientHilo extends Thread{
 
                 //agregaremos un hilo para que no bloquee la escucha
                 new Thread(() -> {
-                    System.out.println("________________________________________________");
-                    System.out.println("Aceptamos un paquete");
-
                     // Datos recibidos e Identificamos quien nos envio
                     String datoRecibido = new String(receivePacket.getData());
                     datoRecibido = datoRecibido.trim();
                     String [] partes = datoRecibido.split("\\|");
-                    System.out.println("USUARIO-ORIGEN: " + partes[1] + "\nMensaje: " +  partes[0]);
+                    if (partes.length > 1) {
+                        System.out.println(">>> " + partes[1] + ": " +  partes[0]);
+                    } else {
+                        System.out.println(partes[0]);
+                    }
+
 
                 }).start();
             } catch (Exception e) {
