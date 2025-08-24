@@ -1,49 +1,80 @@
 package py.una.client;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 
-public class UDPClientHilo extends Thread{
 
-    private DatagramSocket socket;
-    private String usuario;
-    private String server;
+public class UDPClientHilo extends Thread {
 
-    public UDPClientHilo (String usuario, DatagramSocket sockeClient, String server) {
+    private final DatagramSocket socket;
+    private final String usuario;
+    private final String server; // por compatibilidad
+    
+
+    private volatile boolean running = true;
+
+    public UDPClientHilo(String usuario, DatagramSocket sockeClient, String server) {
         super("UDPCliente: " + usuario);
         this.socket = sockeClient;
         this.usuario = usuario;
         this.server = server;
     }
 
-    public void run(){
+    /** Apaga el loop y cierra el socket para desbloquear receive(). */
+    public void shutdown() {
+        running = false;
+        try { socket.close(); } catch (Exception ignored) {}
+    }
 
-        byte[] receiveData = new byte[2048];
+    @Override
+    public void run() {
 
-        while (true) {
+        // Buffer de recepción (reutilizable)
+        byte[] receiveData = new byte[1024];
+
+        while (running) {
             try {
-                receiveData = new byte[1024];
                 DatagramPacket receivePacket =
                         new DatagramPacket(receiveData, receiveData.length);
 
-                // 4) Receive LLAMADA BLOQUEANTE
+                // Receive BLOQUEANTE
                 socket.receive(receivePacket);
 
-                //agregaremos un hilo para que no bloquee la escucha
+                // Procesar en un hilo liviano para no bloquear la escucha
                 new Thread(() -> {
-                    // Datos recibidos e Identificamos quien nos envio
-                    String datoRecibido = new String(receivePacket.getData());
-                    datoRecibido = datoRecibido.trim();
-                    String [] partes = datoRecibido.split("\\|");
-                    if (partes.length > 1) {
-                        System.out.println(">>> " + partes[1] + ": " +  partes[0]);
-                    } else {
-                        System.out.println(partes[0]);
+                    try {
+                        // Decodificar SOLO bytes útiles y en UTF-8
+                        String datoRecibido = new String(
+                                receivePacket.getData(),
+                                0,
+                                receivePacket.getLength(),
+                                StandardCharsets.UTF_8
+                        ).trim();
+
+                        if (datoRecibido.isEmpty()) return;
+
+                        String[] partes = datoRecibido.split("\\|", 2); // solo en el primer '|'
+                        if (partes.length == 2) {
+                            System.out.println(">>> " + partes[1].trim() + ": " + partes[0].trim());
+                        } else {
+                            // Texto plano (p.ej. [ERROR] ... o /who)
+                            System.out.println(datoRecibido);
+                        }
+
+                    } catch (Exception e) {
+                        System.out.println("[ERROR] Al procesar paquete: " + e.getMessage());
                     }
+                }, "udp-client-handler-" + System.nanoTime()).start();
 
-
-                }).start();
+            } catch (SocketException se) {
+                // Si fue cierre intencional, salimos silenciosamente
+                if (!running) break;
+                System.out.println("[ERROR] Escucha UDP: " + (se.getMessage() == null ? se : se.getMessage()));
+                break;
             } catch (Exception e) {
-                e.printStackTrace();
+                System.out.println("[ERROR] Escucha UDP: " + (e.getMessage() == null ? e : e.getMessage()));
+                break;
             }
         }
     }
