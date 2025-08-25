@@ -68,6 +68,15 @@ public class UDPServerHilo extends Thread {
             }
             // ===== FIN NUEVO =====
 
+            // ===== NUEVO: manejo de logout =====
+            if (datoRecibido.startsWith("logout:")) {
+                String usuarioLogout = datoRecibido.substring("logout:".length()).trim();
+                usuarios.remove(usuarioLogout);
+                System.out.println("Usuario desconectado: " + usuarioLogout);
+                return;
+            }
+            // ===== FIN NUEVO =====
+
             // Intentar parsear el JSON a Mensaje
             Mensaje mensaje;
             try {
